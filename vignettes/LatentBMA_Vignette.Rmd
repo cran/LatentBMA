@@ -1,0 +1,103 @@
+
+---
+title: "Bayesian Model Averaging with 'LatentBMA'"
+author: "G. Zens"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Bayesian Model Averaging with 'LatentBMA'}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This vignette provides an overview of the R package **LatentBMA**, which implements Bayesian model averaging (BMA) algorithms for univariate link latent Gaussian models (ULLGMs). For detailed information, refer to "Steel M.F.J. & Zens G. (2024). Model Uncertainty in Latent Gaussian Models with Univariate Link Function". The package supports various g-priors and a beta-binomial prior on the model space. It also includes auxiliary functions for visualizing and tabulating BMA results. Currently, it offers an easy 'out-of-the-box' solution for model averaging of Poisson log-normal (PLN) and binomial logistic-normal (BiL) models. The codebase is designed to be easily extendable to other likelihoods, priors, and link functions.
+
+## Model Uncertainty in Poisson Log-Normal Regression Models
+
+Consider a Poisson log-normal regression model of the form \( y_i \sim \mathcal{P}(e^{z_i})\) where \(z_i =  \alpha + x_i'\beta + \epsilon_i \) and \( \epsilon_i \sim \mathcal{N}(0, \sigma^2) \). We simulate data with \( n=100 \) observations and \( p=20 \) covariates, where the first two covariates are relevant to the outcome, setting \( \alpha=2 \) and \( \sigma^2=0.25 \).
+
+```{r}
+set.seed(123) # Ensure reproducibility
+X  <- matrix(rnorm(100*20), 100, 20)
+z  <- 2 + X %*% c(0.5, -0.5, rep(0, 18)) + rnorm(100, 0, sqrt(0.25))
+y  <- rpois(100, exp(z))
+```
+
+The following code loads the package and runs a BMA MCMC algorithm with the default prior setup, which is a BRIC prior with \(m=p/2\), see the package manual for more details. Alternative choices of priors are also documented in the package manual.
+
+```{r}
+library(LatentBMA)
+results <- ULLGM_BMA(X = X, y = y, model = "PLN")
+```
+
+## Estimating a Binomial Logistic-Normal Regression Model
+
+To estimate a binomial logistic-normal (BiL) model of the form \( y_i \sim \mathcal{Bin}(N_i, 1/(1+e^{-z_i}))\), where \(z_i = \alpha + x_i'\beta + \epsilon_i \) and \( \epsilon_i \sim \mathcal{N}(0, \sigma^2) \), and \( N_i \) is the number of trials for each observation, one can use a similar syntax. The following code simulates data with \( n=100 \) observations and \( p=20 \) covariates, assuming \( N_i = 50 \) trials for each observation, with the first two covariates relevant to the outcome, setting \( \alpha=1 \) and \( \sigma^2=0.25 \):
+
+```{r}
+set.seed(123) # Ensure reproducibility
+X  <- matrix(rnorm(100*20), 100, 20)
+Ni <- rep(50, 100)
+z  <- 1 + X %*% c(0.5, -0.5, rep(0, 18)) + rnorm(100, 0, sqrt(0.25))
+y  <- rbinom(100, Ni, 1/(1+exp(-z)))
+```
+
+The corresponding ULLGM-BiL model in **LatentBMA** can be called using a similar command as before, changing only the `model` parameter and specifying the number of trials \(N_i\):
+
+```{r}
+results <- ULLGM_BMA(X=X, y=y, Ni=Ni, model = "BiL")
+```
+
+## Summarizing the Estimation Output
+
+To summarize the posterior output in a table, one can use `LatentBMA::summarizeBMA()`. Note that all functions in **LatentBMA** that generate tables support LaTeX and HTML output. `summarizeBMA()` outputs a `knitr::kable` object which can be fully customized. The algorithm correctly identifies the first two predictors as the most relevant, as can be seen from the column with posterior inclusion probabilities.
+
+```{r}
+summaryBMA(results)
+```
+
+To extract the top models and the corresponding posterior model probabilities (PMPs) from the regression output, `LatentBMA::topModels()` can be used. In this simple setting, the algorithm strongly concentrates on the true model with two included predictors.
+
+```{r}
+topModels(results)
+```
+
+Several commands are available to visually summarize the results. To view the posterior distribution of model size, one can use `LatentBMA::plotModelSize()`. All plotting functions in **LatentBMA** output a `ggplot2::ggplot` object, which can be fully customized.
+
+```{r}
+plotModelSize(results)
+```
+
+The estimated posterior inclusion probabilities and posterior means using `LatentBMA::plotBeta()` and `LatentBMA::plotPIP()` can be visualized as follows:
+
+```{r}
+plotBeta(results)
+```
+
+```{r}
+plotPIP(results)
+```
+
+In order to assess the convergence of the algorithm, it can be useful to examine posterior traceplots. The function `LatentBMA::tracePlot()` provides functionality to generate traceplots for the parameters and the size of the visited models. For example, to look at the traceplots of $\alpha$ and $\sigma^2$, one can use the following code.
+
+```{r}
+tracePlot(results, parameter = "alpha")
+```
+
+```{r}
+tracePlot(results, parameter = "sigma2")
+```
+
+## Further Customization
+
+For advanced customization of the algorithm, experienced users can utilize the internal function `ULLGM_BMA_MCMC` from the package. Although this function is not exported, it can be accessed using the triple colon operator (`:::`) or through the code repository. This function allows for deeper customization and fine-tuning of the algorithm's parameters, offering more control over its execution.
+
+For example, one could implement user-specified functions for likelihoods, gradients, and g-priors. Templates for these modifications can be found in the code repository. Please note that this functionality has not been thoroughly tested, so special care is advised when working with these modifications.
+

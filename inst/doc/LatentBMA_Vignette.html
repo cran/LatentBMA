@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="G. Zens" />
+
+<meta name="date" content="2024-06-26" />
+
+<title>Bayesian Model Averaging with ‘LatentBMA’</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Bayesian Model Averaging with
+‘LatentBMA’</h1>
+<h4 class="author">G. Zens</h4>
+<h4 class="date">2024-06-26</h4>
+
+
+
+<p>This vignette provides an overview of the R package
+<strong>LatentBMA</strong>, which implements Bayesian model averaging
+(BMA) algorithms for univariate link latent Gaussian models (ULLGMs).
+For detailed information, refer to “Steel M.F.J. &amp; Zens G. (2024).
+Model Uncertainty in Latent Gaussian Models with Univariate Link
+Function”. The package supports various g-priors and a beta-binomial
+prior on the model space. It also includes auxiliary functions for
+visualizing and tabulating BMA results. Currently, it offers an easy
+‘out-of-the-box’ solution for model averaging of Poisson log-normal
+(PLN) and binomial logistic-normal (BiL) models. The codebase is
+designed to be easily extendable to other likelihoods, priors, and link
+functions.</p>
+<div id="model-uncertainty-in-poisson-log-normal-regression-models" class="section level2">
+<h2>Model Uncertainty in Poisson Log-Normal Regression Models</h2>
+<p>Consider a Poisson log-normal regression model of the form <span class="math inline">\(y_i \sim \mathcal{P}(e^{z_i})\)</span> where <span class="math inline">\(z_i =  \alpha + x_i&#39;\beta +
+\epsilon_i\)</span> and <span class="math inline">\(\epsilon_i \sim
+\mathcal{N}(0, \sigma^2)\)</span>. We simulate data with <span class="math inline">\(n=100\)</span> observations and <span class="math inline">\(p=20\)</span> covariates, where the first two
+covariates are relevant to the outcome, setting <span class="math inline">\(\alpha=2\)</span> and <span class="math inline">\(\sigma^2=0.25\)</span>.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>) <span class="co"># Ensure reproducibility</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>X  <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">rnorm</span>(<span class="dv">100</span><span class="sc">*</span><span class="dv">20</span>), <span class="dv">100</span>, <span class="dv">20</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>z  <span class="ot">&lt;-</span> <span class="dv">2</span> <span class="sc">+</span> X <span class="sc">%*%</span> <span class="fu">c</span>(<span class="fl">0.5</span>, <span class="sc">-</span><span class="fl">0.5</span>, <span class="fu">rep</span>(<span class="dv">0</span>, <span class="dv">18</span>)) <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="dv">100</span>, <span class="dv">0</span>, <span class="fu">sqrt</span>(<span class="fl">0.25</span>))</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>y  <span class="ot">&lt;-</span> <span class="fu">rpois</span>(<span class="dv">100</span>, <span class="fu">exp</span>(z))</span></code></pre></div>
+<p>The following code loads the package and runs a BMA MCMC algorithm
+with the default prior setup, which is a BRIC prior with <span class="math inline">\(m=p/2\)</span>, see the package manual for more
+details. Alternative choices of priors are also documented in the
+package manual.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">library</span>(LatentBMA)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">ULLGM_BMA</span>(<span class="at">X =</span> X, <span class="at">y =</span> y, <span class="at">model =</span> <span class="st">&quot;PLN&quot;</span>)</span></code></pre></div>
+</div>
+<div id="estimating-a-binomial-logistic-normal-regression-model" class="section level2">
+<h2>Estimating a Binomial Logistic-Normal Regression Model</h2>
+<p>To estimate a binomial logistic-normal (BiL) model of the form <span class="math inline">\(y_i \sim \mathcal{Bin}(N_i,
+1/(1+e^{-z_i}))\)</span>, where <span class="math inline">\(z_i = \alpha
++ x_i&#39;\beta + \epsilon_i\)</span> and <span class="math inline">\(\epsilon_i \sim \mathcal{N}(0, \sigma^2)\)</span>,
+and <span class="math inline">\(N_i\)</span> is the number of trials for
+each observation, one can use a similar syntax. The following code
+simulates data with <span class="math inline">\(n=100\)</span>
+observations and <span class="math inline">\(p=20\)</span> covariates,
+assuming <span class="math inline">\(N_i = 50\)</span> trials for each
+observation, with the first two covariates relevant to the outcome,
+setting <span class="math inline">\(\alpha=1\)</span> and <span class="math inline">\(\sigma^2=0.25\)</span>:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>) <span class="co"># Ensure reproducibility</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>X  <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">rnorm</span>(<span class="dv">100</span><span class="sc">*</span><span class="dv">20</span>), <span class="dv">100</span>, <span class="dv">20</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>Ni <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">50</span>, <span class="dv">100</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>z  <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">+</span> X <span class="sc">%*%</span> <span class="fu">c</span>(<span class="fl">0.5</span>, <span class="sc">-</span><span class="fl">0.5</span>, <span class="fu">rep</span>(<span class="dv">0</span>, <span class="dv">18</span>)) <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="dv">100</span>, <span class="dv">0</span>, <span class="fu">sqrt</span>(<span class="fl">0.25</span>))</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>y  <span class="ot">&lt;-</span> <span class="fu">rbinom</span>(<span class="dv">100</span>, Ni, <span class="dv">1</span><span class="sc">/</span>(<span class="dv">1</span><span class="sc">+</span><span class="fu">exp</span>(<span class="sc">-</span>z)))</span></code></pre></div>
+<p>The corresponding ULLGM-BiL model in <strong>LatentBMA</strong> can
+be called using a similar command as before, changing only the
+<code>model</code> parameter and specifying the number of trials <span class="math inline">\(N_i\)</span>:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">ULLGM_BMA</span>(<span class="at">X=</span>X, <span class="at">y=</span>y, <span class="at">Ni=</span>Ni, <span class="at">model =</span> <span class="st">&quot;BiL&quot;</span>)</span></code></pre></div>
+</div>
+<div id="summarizing-the-estimation-output" class="section level2">
+<h2>Summarizing the Estimation Output</h2>
+<p>To summarize the posterior output in a table, one can use
+<code>LatentBMA::summarizeBMA()</code>. Note that all functions in
+<strong>LatentBMA</strong> that generate tables support LaTeX and HTML
+output. <code>summarizeBMA()</code> outputs a <code>knitr::kable</code>
+object which can be fully customized. The algorithm correctly identifies
+the first two predictors as the most relevant, as can be seen from the
+column with posterior inclusion probabilities.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">summaryBMA</span>(results)</span></code></pre></div>
+<table>
+<thead>
+<tr class="header">
+<th align="right">Variable</th>
+<th align="right">Posterior Mean</th>
+<th align="right">Posterior SD</th>
+<th align="right">PIP</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">Intercept</td>
+<td align="right">1.067</td>
+<td align="right">0.060</td>
+<td align="right">-</td>
+</tr>
+<tr class="even">
+<td align="right">x1</td>
+<td align="right">0.410</td>
+<td align="right">0.069</td>
+<td align="right">1.000</td>
+</tr>
+<tr class="odd">
+<td align="right">x2</td>
+<td align="right">-0.521</td>
+<td align="right">0.064</td>
+<td align="right">1.000</td>
+</tr>
+<tr class="even">
+<td align="right">x3</td>
+<td align="right">0.003</td>
+<td align="right">0.018</td>
+<td align="right">0.033</td>
+</tr>
+<tr class="odd">
+<td align="right">x4</td>
+<td align="right">-0.002</td>
+<td align="right">0.013</td>
+<td align="right">0.030</td>
+</tr>
+<tr class="even">
+<td align="right">x5</td>
+<td align="right">0.000</td>
+<td align="right">0.008</td>
+<td align="right">0.010</td>
+</tr>
+<tr class="odd">
+<td align="right">x6</td>
+<td align="right">-0.001</td>
+<td align="right">0.012</td>
+<td align="right">0.013</td>
+</tr>
+<tr class="even">
+<td align="right">x7</td>
+<td align="right">0.000</td>
+<td align="right">0.007</td>
+<td align="right">0.012</td>
+</tr>
+<tr class="odd">
+<td align="right">x8</td>
+<td align="right">-0.004</td>
+<td align="right">0.022</td>
+<td align="right">0.042</td>
+</tr>
+<tr class="even">
+<td align="right">x9</td>
+<td align="right">0.000</td>
+<td align="right">0.008</td>
+<td align="right">0.015</td>
+</tr>
+<tr class="odd">
+<td align="right">x10</td>
+<td align="right">0.001</td>
+<td align="right">0.007</td>
+<td align="right">0.010</td>
+</tr>
+<tr class="even">
+<td align="right">x11</td>
+<td align="right">0.003</td>
+<td align="right">0.019</td>
+<td align="right">0.037</td>
+</tr>
+<tr class="odd">
+<td align="right">x12</td>
+<td align="right">0.000</td>
+<td align="right">0.005</td>
+<td align="right">0.008</td>
+</tr>
+<tr class="even">
+<td align="right">x13</td>
+<td align="right">-0.002</td>
+<td align="right">0.016</td>
+<td align="right">0.025</td>
+</tr>
+<tr class="odd">
+<td align="right">x14</td>
+<td align="right">0.001</td>
+<td align="right">0.012</td>
+<td align="right">0.020</td>
+</tr>
+<tr class="even">
+<td align="right">x15</td>
+<td align="right">-0.001</td>
+<td align="right">0.013</td>
+<td align="right">0.020</td>
+</tr>
+<tr class="odd">
+<td align="right">x16</td>
+<td align="right">-0.001</td>
+<td align="right">0.013</td>
+<td align="right">0.024</td>
+</tr>
+<tr class="even">
+<td align="right">x17</td>
+<td align="right">0.000</td>
+<td align="right">0.009</td>
+<td align="right">0.016</td>
+</tr>
+<tr class="odd">
+<td align="right">x18</td>
+<td align="right">0.000</td>
+<td align="right">0.008</td>
+<td align="right">0.015</td>
+</tr>
+<tr class="even">
+<td align="right">x19</td>
+<td align="right">0.004</td>
+<td align="right">0.021</td>
+<td align="right">0.045</td>
+</tr>
+<tr class="odd">
+<td align="right">x20</td>
+<td align="right">-0.001</td>
+<td align="right">0.011</td>
+<td align="right">0.018</td>
+</tr>
+<tr class="even">
+<td align="right">sigma^2</td>
+<td align="right">0.208</td>
+<td align="right">0.048</td>
+<td align="right">-</td>
+</tr>
+<tr class="odd">
+<td align="right">g</td>
+<td align="right">400.000</td>
+<td align="right">0.000</td>
+<td align="right">-</td>
+</tr>
+<tr class="even">
+<td align="right">Model Size</td>
+<td align="right">2.394</td>
+<td align="right">0.662</td>
+<td align="right">-</td>
+</tr>
+</tbody>
+</table>
+<p>To extract the top models and the corresponding posterior model
+probabilities (PMPs) from the regression output,
+<code>LatentBMA::topModels()</code> can be used. In this simple setting,
+the algorithm strongly concentrates on the true model with two included
+predictors.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">topModels</span>(results)</span></code></pre></div>
+<table>
+<tbody>
+<tr class="odd">
+<td align="left">model</td>
+<td align="left">Model #1</td>
+<td align="left">Model #2</td>
+<td align="left">Model #3</td>
+<td align="left">Model #4</td>
+<td align="left">Model #5</td>
+</tr>
+<tr class="even">
+<td align="left">x1</td>
+<td align="left">x</td>
+<td align="left">x</td>
+<td align="left">x</td>
+<td align="left">x</td>
+<td align="left">x</td>
+</tr>
+<tr class="odd">
+<td align="left">x2</td>
+<td align="left">x</td>
+<td align="left">x</td>
+<td align="left">x</td>
+<td align="left">x</td>
+<td align="left">x</td>
+</tr>
+<tr class="even">
+<td align="left">x3</td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left">x</td>
+</tr>
+<tr class="odd">
+<td align="left">x8</td>
+<td align="left"></td>
+<td align="left">x</td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">x11</td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left">x</td>
+<td align="left"></td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">x19</td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left">x</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">PMP</td>
+<td align="left">0.690</td>
+<td align="left">0.028</td>
+<td align="left">0.025</td>
+<td align="left">0.023</td>
+<td align="left">0.017</td>
+</tr>
+</tbody>
+</table>
+<p>Several commands are available to visually summarize the results. To
+view the posterior distribution of model size, one can use
+<code>LatentBMA::plotModelSize()</code>. All plotting functions in
+<strong>LatentBMA</strong> output a <code>ggplot2::ggplot</code> object,
+which can be fully customized.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">plotModelSize</span>(results)</span></code></pre></div>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+<p>The estimated posterior inclusion probabilities and posterior means
+using <code>LatentBMA::plotBeta()</code> and
+<code>LatentBMA::plotPIP()</code> can be visualized as follows:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">plotBeta</span>(results)</span></code></pre></div>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">plotPIP</span>(results)</span></code></pre></div>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+<p>In order to assess the convergence of the algorithm, it can be useful
+to examine posterior traceplots. The function
+<code>LatentBMA::tracePlot()</code> provides functionality to generate
+traceplots for the parameters and the size of the visited models. For
+example, to look at the traceplots of <span class="math inline">\(\alpha\)</span> and <span class="math inline">\(\sigma^2\)</span>, one can use the following
+code.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">tracePlot</span>(results, <span class="at">parameter =</span> <span class="st">&quot;alpha&quot;</span>)</span></code></pre></div>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">tracePlot</span>(results, <span class="at">parameter =</span> <span class="st">&quot;sigma2&quot;</span>)</span></code></pre></div>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+</div>
+<div id="further-customization" class="section level2">
+<h2>Further Customization</h2>
+<p>For advanced customization of the algorithm, experienced users can
+utilize the internal function <code>ULLGM_BMA_MCMC</code> from the
+package. Although this function is not exported, it can be accessed
+using the triple colon operator (<code>:::</code>) or through the code
+repository. This function allows for deeper customization and
+fine-tuning of the algorithm’s parameters, offering more control over
+its execution.</p>
+<p>For example, one could implement user-specified functions for
+likelihoods, gradients, and g-priors. Templates for these modifications
+can be found in the code repository. Please note that this functionality
+has not been thoroughly tested, so special care is advised when working
+with these modifications.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

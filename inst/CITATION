@@ -1,0 +1,8 @@
+bibentry(
+  bibtype  = "Article",
+  title    = "Model Uncertainty in Latent Gaussian Models with Univariate Link Function",
+  author   = as.person("Mark F.J. Steel [aut], Gregor Zens [aut]"),
+  year     = "2024",
+  journal  = "arXiv Report",
+  doi      = "10.48550/arXiv.2406.17318"
+)
