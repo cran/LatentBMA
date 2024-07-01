@@ -109,7 +109,7 @@ ULLGM_BMA_MCMC     = function(X,
   # beta binomial model size prior: P/2 by default
   m           = ifelse(is.null(m), P/2, m)
 
-  # if g prior not fixed, trigger updating of g
+  # if g prior not fixed, trigger updating of g (initialize at g=N)
   if(is.function(gprior)){randomg=TRUE; g = N} else{randomg=FALSE}
 
 
@@ -135,7 +135,6 @@ ULLGM_BMA_MCMC     = function(X,
   theta[c(F, gamma==0)]         = 0
   fit.mean                      = cbind(1, X.curr) %*% beta
 
-
   # for adaptive barker proposal
   tau                           = matrix(0.1, N)
   accept                        = matrix(0, N)
@@ -148,7 +147,6 @@ ULLGM_BMA_MCMC     = function(X,
   theta.store                   = array(NA, c(nsave, P + 1))
   sig2.store                    = array(NA, c(nsave, 1))
   g.store                       = array(NA, c(nsave, 1))
-
 
   # some useful precomputations
   ones                          = rep(1, N)
@@ -186,7 +184,7 @@ ULLGM_BMA_MCMC     = function(X,
     # compute gradient of log posterior at proposal value
     Zpmu        = z.prop - fit.mean
     eZp         = exp(z.prop)
-    GradProp    = LogLikGradient(y, z, Ni) - Zmu/sig2
+    GradProp    = LogLikGradient(y, z.prop, Ni) - Zpmu/sig2
 
     # barker proposal correction term
     CorrTerm        = CorrTermBarker(z, z.prop, GradCurr, GradProp, zeros)

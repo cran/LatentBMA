@@ -1,9 +1,9 @@
-3cb18539bc0150660651615d2a4df78d *DESCRIPTION
+3ec1247d0bc639483e2ba37576bba4f5 *DESCRIPTION
 46fba0702ec46659f44900b43c4803cb *LICENSE
 8f09d6d177add4689c76504175a96018 *NAMESPACE
 74591e724f7ecb60de9e78b896197232 *R/gradients.R
 019afda4a5c176b9015825b782e5b6ee *R/likelihoods.R
-3843c9ef189d0e7524baad986f50aba6 *R/mcmc.R
+a033d490b3fc1f7b682894497b815b28 *R/mcmc.R
 d686785c77d9110360b990818ca0e260 *R/priors.R
 2d639ca768bebdb3eaa29b9cf07a7f8f *R/utils.R
 2ff22cd160f0ac7da94bb15f8a968c6d *R/wrapper.R
@@ -11,7 +11,7 @@ aa19cb5b0fbed7d1078fc98a3bc10f4a *build/vignette.rds
 d6be19f04fea7a6d59fa7002398ac548 *inst/CITATION
 171adb67bc108d3a629347767a35b6b2 *inst/doc/LatentBMA_Vignette.R
 38e77a83af3e6ea488c39210fb2f2496 *inst/doc/LatentBMA_Vignette.Rmd
-490b83b90ea82e33ba3395b403d09424 *inst/doc/LatentBMA_Vignette.html
+f5d1e0d4c4002fd96a2e5188c7e7be2f *inst/doc/LatentBMA_Vignette.html
 f03d3abb65e03880982a153a13a58aa2 *man/ULLGM_BMA.Rd
 50f5fcdf1dd43ec71b822194d8142168 *man/plotBeta.Rd
 6c4a0c2066e78db687d20f3a1e5d0355 *man/plotModelSize.Rd
