@@ -87,10 +87,26 @@ if(any(colSums(X)==nrow(X))){warning("It seems an intercept term has been includ
 
 if(gprior=="zellnersiow"){    g_prior = g_zellnersiow}
 if(gprior=="horseshoe"){      g_prior = g_horseshoe}
+
 if(gprior=="hyper-g(a=3)"){   g_prior = g_hyperg3}
 if(gprior=="hyper-g(a=4)"){   g_prior = g_hyperg4}
+if(gprior=="hyper-g(a=2.5)"){   g_prior = g_hyperg2.5}
+if(gprior=="hyper-g(a=3.5)"){   g_prior = g_hyperg3.5}
+
 if(gprior=="hyper-g/n(a=3)"){ g_prior = g_hypergn3}
 if(gprior=="hyper-g/n(a=4)"){ g_prior = g_hypergn4}
+if(gprior=="hyper-g/n(a=2.5)"){ g_prior = g_hypergn2.5}
+if(gprior=="hyper-g/n(a=3.5)"){ g_prior = g_hypergn3.5}
+
+if(gprior=="benchmark-n(c=0.01)"){ g_prior = g_benchmarkN0.01}
+if(gprior=="benchmark-n(c=0.1)"){ g_prior = g_benchmarkN0.1}
+if(gprior=="benchmark-n(c=1)"){ g_prior = g_benchmarkN1}
+
+if(gprior=="benchmark-p(c=0.01)"){ g_prior = g_benchmarkP0.01}
+if(gprior=="benchmark-p(c=0.1)"){ g_prior = g_benchmarkP0.1}
+if(gprior=="benchmark-p(c=1)"){ g_prior = g_benchmarkP1}
+
+
 if(gprior=="RIC"){            g_prior = "RIC"}
 if(gprior=="BRIC"){           g_prior = "BRIC"}
 if(gprior=="UIP"){            g_prior = "UIP"}

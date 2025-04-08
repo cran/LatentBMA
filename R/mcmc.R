@@ -1,54 +1,85 @@
-# add delete swap proposal
-gammaProposal = function(incl.curr){
-
-  P         = length(incl.curr)        # Total number of predictors
-  P.curr    = sum(incl.curr)           # Number of currently included predictors
-  incl.prop = incl.curr
-
-  # Determine possible moves based on the current model
-  if (P.curr == 0) {
-    move = 1  # Only addition is possible
-  } else if (P.curr == P) {
-    move = 3  # Only deletion is possible
+gammaProposal <- function(incl.curr) {
+  
+  P      <- length(incl.curr)      # Total number of predictors
+  p_curr <- sum(incl.curr)         # Number of currently included predictors
+  incl.prop <- incl.curr
+  
+  # Determine possible moves based on the current model:
+  # Only addition if p_curr==0, only deletion if p_curr==P,
+  # else each of add, swap, and delete has probability 1/3.
+  if(p_curr == 0) {
+    move <- 1  # Only addition is possible
+  } else if(p_curr == P) {
+    move <- 3  # Only deletion is possible
   } else {
-    move = sample(c(1, 2, 3), 1)  # All moves are possible
+    move <- sample(c(1, 2, 3), 1)  # All moves are possible with equal probability 1/3.
   }
-
-  # Implement the chosen move
-  if(move == 1) {  # Addition
-    selector = sample(which(incl.curr == 0), 1, replace = FALSE)
-    incl.prop[selector] = 1
-    P.prop = sum(incl.prop)
-
-    # Calculate correction terms
-    Curr2Prop = log(1 / (P - P.curr))  # log probability to move from current to proposal
-    Prop2Curr = log(1 / (P.curr + 1))  # log probability to move from proposal to current
-
-  } else if(move == 2) {  # Swap
-    selector_del = sample(which(incl.curr == 1), 1, replace = FALSE)
-    selector_add = sample(which(incl.curr == 0), 1, replace = FALSE)
-    incl.prop[selector_del] = 0
-    incl.prop[selector_add] = 1
-    P.prop = sum(incl.prop)
-
-    # Correction terms for swap moves are symmetric (equal probabilities)
-    Curr2Prop = 0
-    Prop2Curr = 0
-
-  } else if(move == 3) {  # Deletion
-    selector = sample(which(incl.curr == 1), 1, replace = FALSE)
-    incl.prop[selector] = 0
-    P.prop = sum(incl.prop)
-
-    # Calculate correction terms
-    Curr2Prop = log(1 / P.curr)  # log probability to move from current to proposal
-    Prop2Curr = log(1 / (P - (P.curr - 1)))  # log probability to move from proposal to current
+  
+  if(move == 1) {  # Addition move
+    # Determine the probability for an addition move:
+    # π_A(M_k) = 1 if model is empty; 1/3 otherwise.
+    pi_A <- ifelse(p_curr == 0, 1, 1/3)
+    
+    # Choose a predictor (not in the model) uniformly.
+    add_candidates <- which(incl.curr == 0)
+    selector <- sample(add_candidates, 1)
+    incl.prop[selector] <- 1
+    p_prop <- sum(incl.prop)  # Proposed model size (p_curr + 1)
+    
+    # In the reverse move (deletion from the proposed model):
+    # π_D(M*) = 1 if the proposed model is full; 1/3 otherwise.
+    pi_D_rev <- ifelse(p_prop == P, 1, 1/3)
+    
+    # Compute log probabilities.
+    # Forward: q(M*|M_k) = π_A(M_k) * [1/(P - p_curr)]
+    # Reverse: q(M_k|M*) = π_D(M*) * [1/(p_prop)]
+    Curr2Prop <- log(pi_A) - log(P - p_curr)
+    Prop2Curr <- log(pi_D_rev) - log(p_prop)
+    
+  } else if(move == 2) {  # Swap move
+    # Swap is only available if 0 < p_curr < P.
+    # π_S(M_k) is 1/3 but cancels out in the correction factor.
+    
+    # Select one predictor to remove uniformly from the model.
+    del_candidates <- which(incl.curr == 1)
+    selector_del <- sample(del_candidates, 1)
+    # And one predictor to add uniformly from those not in the model.
+    add_candidates <- which(incl.curr == 0)
+    selector_add <- sample(add_candidates, 1)
+    
+    incl.prop[selector_del] <- 0
+    incl.prop[selector_add] <- 1
+    # For swap moves, the forward and reverse moves are symmetric.
+    Curr2Prop <- 0
+    Prop2Curr <- 0
+    
+  } else if(move == 3) {  # Deletion move
+    # Determine the probability for a deletion move:
+    # π_D(M_k) = 1 if the model is full; 1/3 otherwise.
+    pi_D <- ifelse(p_curr == P, 1, 1/3)
+    
+    # Choose a predictor to delete uniformly.
+    del_candidates <- which(incl.curr == 1)
+    selector <- sample(del_candidates, 1)
+    incl.prop[selector] <- 0
+    p_prop <- sum(incl.prop)  # Proposed model size (p_curr - 1)
+    
+    # In the reverse move (addition to the proposed model):
+    # π_A(M*) = 1 if the proposed model is empty; 1/3 otherwise.
+    pi_A_rev <- ifelse(p_prop == 0, 1, 1/3)
+    
+    # Compute log probabilities.
+    # Forward: q(M*|M_k) = π_D(M_k) * [1/(p_curr)]
+    # Reverse: q(M_k|M*) = π_A(M*) * [1/(P - p_prop)]
+    Curr2Prop <- log(pi_D) - log(p_curr)
+    Prop2Curr <- log(pi_A_rev) - log(P - p_prop)
   }
-
-  return(list(incl.prop = incl.prop, Prop2Curr = Prop2Curr, Curr2Prop = Curr2Prop, move = move))
-
+  
+  return(list(incl.prop = incl.prop, 
+              Prop2Curr = Prop2Curr, 
+              Curr2Prop = Curr2Prop, 
+              move = move))
 }
-
 
 # log marginal likelihood and OLS solutions
 ML_OLS    = function(y, X, XX, g, TSS){
@@ -130,11 +161,13 @@ ULLGM_BMA_MCMC     = function(X,
   X.curr                        = X[, gamma==1,drop=F]
   beta                          = rnorm(sum(gamma) + 1)
   sig2                          = 0.1
-  theta                         = numeric(length=P)
+  theta                         = numeric(length=P+1)
   theta[c(T, gamma==1)]         = beta
   theta[c(F, gamma==0)]         = 0
   fit.mean                      = cbind(1, X.curr) %*% beta
-
+  mz  = mean(z)
+  TSS = crossprod(z-mz)
+  
   # for adaptive barker proposal
   tau                           = matrix(0.1, N)
   accept                        = matrix(0, N)
@@ -147,6 +180,7 @@ ULLGM_BMA_MCMC     = function(X,
   theta.store                   = array(NA, c(nsave, P + 1))
   sig2.store                    = array(NA, c(nsave, 1))
   g.store                       = array(NA, c(nsave, 1))
+  ML.store                      = array(NA, c(nsave, 1))
 
   # some useful precomputations
   ones                          = rep(1, N)
@@ -167,52 +201,10 @@ ULLGM_BMA_MCMC     = function(X,
 
   for(irep in 1:ntot){
 
-    # ---
-    # --- step 1: update latent z
-    # ---
-
-    # compute gradient of log posterior at current value
-    Zmu        = z - fit.mean
-    eZ         = exp(z)
-    GradCurr   = LogLikGradient(y, z, Ni) - Zmu/sig2
-
-    # barker proposal
-    zi         = tau * rnorm(N)
-    b          = 2 * (runif(N) < (1 / (1 + exp(-GradCurr * zi)))) - 1
-    z.prop     = z + zi * b
-
-    # compute gradient of log posterior at proposal value
-    Zpmu        = z.prop - fit.mean
-    eZp         = exp(z.prop)
-    GradProp    = LogLikGradient(y, z.prop, Ni) - Zpmu/sig2
-
-    # barker proposal correction term
-    CorrTerm        = CorrTermBarker(z, z.prop, GradCurr, GradProp, zeros)
-
-    # log prior difference
-    sqrtsig2        = sqrt(sig2)
-    LogPriDiff      = 0.5 * ( (Zmu / sqrtsig2)^2 - (Zpmu / sqrtsig2)^2 )
-
-    # log likelihood difference
-    LogLikDiff      = LogLikelihood(y, z.prop, Ni) - LogLikelihood(y, z, Ni)
-
-    # acceptance probability
-    zeta            = pmin(ones, exp(LogLikDiff + LogPriDiff + CorrTerm))
-
-    # accept or reject
-    acc             = ifelse(runif(N) < zeta, 1, 0)
-    z[acc == 1]     = z.prop[acc == 1]
-
-    # global scale adaption
-    l.tau2          = log(tau^2) + (irep ^ (-0.6)) * (zeta - 0.57)
-    tau             = sqrt(exp(l.tau2))
-
-    # update some important quantities
-    mz  = mean(z)
-    TSS = crossprod(z-mz)
+   
 
     # ---
-    # --- step 2: between model step
+    # --- between model step
     # ---
 
     # compute marginal likelihood and ols quantities at current model
@@ -233,16 +225,19 @@ ULLGM_BMA_MCMC     = function(X,
     X.prop            = X[, gamma.prop==1, drop=F]
 
     # Check if X'X is invertible (full rank condition)
-    XtX = crossprod(cbind(1,X.prop))
-    tolerance = 1e-10
-    while (abs(det(XtX)) < tolerance) {
-
+    XtX = XX[c(T, gamma.prop==1), c(T, gamma.prop==1), drop=F]
+    
+    rk  = qr(XtX)$rank
+    #tolerance = 1e-50
+    while (rk != ncol(XtX)) {
+      
       # X'X is not invertible, propose a new gamma
       GP                = gammaProposal(gamma)
       gamma.prop        = GP$incl.prop
       X.prop            = X[, gamma.prop==1, drop=F]
-      XtX = t(X.prop) %*% X.prop
-
+      XtX               = XX[c(T, gamma.prop==1), c(T, gamma.prop==1), drop=F]
+      rk                = qr(XtX)$rank
+      
     }
 
     # compute relevant posterior quantities and marginal likelihood for proposed model
@@ -286,7 +281,7 @@ ULLGM_BMA_MCMC     = function(X,
 
 
     # ---
-    # --- step 3: within model step
+    # --- within model step
     # ---
 
       # if prior on g is specified, sample g
@@ -294,8 +289,8 @@ ULLGM_BMA_MCMC     = function(X,
 
         # proposal
         g.prop        = exp(rnorm(1, log(g), sqrt(tau.g)))
-        lprior.curr   = gprior(g, N = N)
-        lprior.prop   = gprior(g.prop, N=N)
+        lprior.curr   = gprior(g, N = N, P = P)
+        lprior.prop   = gprior(g.prop, N=N, P = P)
 
         # log likelihood (difference of marginal likelihood of current model for current versus proposed g )
         P.j           = sum(gamma)
@@ -335,6 +330,51 @@ ULLGM_BMA_MCMC     = function(X,
 
       theta[c(F, gamma  == 0)]   = 0
       fit.mean                  = cbind(1, X.curr) %*% beta
+      
+      
+      # ---
+      # --- update latent z
+      # ---
+      
+      # compute gradient of log posterior at current value
+      Zmu        = z - fit.mean
+      eZ         = exp(z)
+      GradCurr   = LogLikGradient(y, z, Ni) - Zmu/sig2
+      
+      # barker proposal
+      zi         = tau * rnorm(N)
+      b          = 2 * (runif(N) < (1 / (1 + exp(-GradCurr * zi)))) - 1
+      z.prop     = z + zi * b
+      
+      # compute gradient of log posterior at proposal value
+      Zpmu        = z.prop - fit.mean
+      eZp         = exp(z.prop)
+      GradProp    = LogLikGradient(y, z.prop, Ni) - Zpmu/sig2
+      
+      # barker proposal correction term
+      CorrTerm        = CorrTermBarker(z, z.prop, GradCurr, GradProp, zeros)
+      
+      # log prior difference
+      sqrtsig2        = sqrt(sig2)
+      LogPriDiff      = 0.5 * ( (Zmu / sqrtsig2)^2 - (Zpmu / sqrtsig2)^2 )
+      
+      # log likelihood difference
+      LogLikDiff      = LogLikelihood(y, z.prop, Ni) - LogLikelihood(y, z, Ni)
+      
+      # acceptance probability
+      zeta            = pmin(ones, exp(LogLikDiff + LogPriDiff + CorrTerm))
+      
+      # accept or reject
+      acc             = ifelse(runif(N) < zeta, 1, 0)
+      z[acc == 1]     = z.prop[acc == 1]
+      
+      # global scale adaption
+      l.tau2          = log(tau^2) + (irep ^ (-0.6)) * (zeta - 0.57)
+      tau             = sqrt(exp(l.tau2))
+      
+      # update some important quantities
+      mz  = mean(z)
+      TSS = crossprod(z-mz)
 
 
     # storage
@@ -344,6 +384,7 @@ ULLGM_BMA_MCMC     = function(X,
       gamma.store[irep - nburn,]      = gamma
       sig2.store[irep - nburn,]       = sig2
       g.store[irep-nburn,]            = g
+      ML.store[irep-nburn,]           = ML
 
     }
 
@@ -368,6 +409,7 @@ ULLGM_BMA_MCMC     = function(X,
                  gamma = gamma.store,
                  sig2 = sig2.store,
                  g = g.store,
+                 ML = ML.store,
                  time = endtime - starttime)
 
   return(results)
